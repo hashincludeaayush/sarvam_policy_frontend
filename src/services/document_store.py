@@ -5,7 +5,8 @@ import re
 from collections import OrderedDict
 from typing import Any
 
-import chromadb
+from chromadb.api.client import Client as ChromaClient
+from chromadb.config import Settings as ChromaSettings
 
 from src.core.config import AppConfig
 from src.services.embedding_service import EmbeddingService
@@ -15,7 +16,12 @@ class DocumentStore:
     def __init__(self, config: AppConfig) -> None:
         self.config = config
         self.embedding_service = EmbeddingService(config)
-        self.client = chromadb.PersistentClient(path=str(config.vector_store_dir))
+
+        chroma_settings = ChromaSettings()
+        chroma_settings.persist_directory = str(config.vector_store_dir)
+        chroma_settings.is_persistent = True
+        self.client = ChromaClient(settings=chroma_settings)
+
         collection_name = self._build_collection_name(config.collection_name)
         self.collection = self.client.get_or_create_collection(
             name=collection_name,
@@ -54,7 +60,8 @@ class DocumentStore:
         ids = [item["chunk_id"] for item in documents]
         search_texts = [item["search_text"] for item in documents]
         metadatas = [
-            self._clean_metadata({key: value for key, value in item.items() if key not in {"chunk_id", "search_text"}})
+            self._clean_metadata({key: value for key, value in item.items() if key not in {
+                                 "chunk_id", "search_text"}})
             for item in documents
         ]
         embeddings = self._embed_documents(search_texts)
@@ -85,7 +92,8 @@ class DocumentStore:
             hit = dict(metadata or {})
             hit["chunk_id"] = chunk_id
             hit["search_text"] = document
-            semantic_score = float(1 / (1 + distance)) if distance is not None else 0.0
+            semantic_score = float(
+                1 / (1 + distance)) if distance is not None else 0.0
             lexical_score = self._lexical_score(query, document)
             hit["semantic_score"] = semantic_score
             hit["lexical_score"] = lexical_score
@@ -102,7 +110,8 @@ class DocumentStore:
                 existing = ordered_hits.get(hit["chunk_id"])
                 if existing is None or hit["score"] > existing["score"]:
                     ordered_hits[hit["chunk_id"]] = hit
-        ranked = sorted(ordered_hits.values(), key=lambda item: item.get("score", 0.0), reverse=True)
+        ranked = sorted(ordered_hits.values(),
+                        key=lambda item: item.get("score", 0.0), reverse=True)
         return ranked[:top_k]
 
     def count(self) -> int:
