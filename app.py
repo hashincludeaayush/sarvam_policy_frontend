@@ -407,6 +407,10 @@ def init_state() -> None:
     st.session_state.setdefault("pending_voice_prompt", None)
     st.session_state.setdefault("submitted_prompt", None)
 
+    # Voice -> auto-send flow.
+    st.session_state.setdefault("auto_send_after_transcribe", False)
+    st.session_state.setdefault("rerun_after_autosend", False)
+
     st.session_state.setdefault("prompt_draft", "")
 
 
@@ -881,7 +885,9 @@ def _render_voice_tools(sarvam: SarvamService) -> None:
             "language_code": transcript.get("language_code") or "auto",
         }
         st.session_state["pending_prompt_text"] = transcript["transcript"]
-        st.success("Voice transcript added to the input box.")
+        st.session_state["auto_send_after_transcribe"] = True
+        st.session_state["rerun_after_autosend"] = True
+        st.success("Voice transcript sent.")
         st.rerun()
 
 
@@ -918,6 +924,12 @@ def render_chat_input_bar(sarvam: SarvamService) -> tuple[str | None, str]:
         else:
             with st.expander("🎤 Voice", expanded=False):
                 _render_voice_tools(sarvam)
+
+    auto_send = bool(st.session_state.pop("auto_send_after_transcribe", False))
+    if auto_send:
+        send_clicked = True
+        # Clear on the post-send rerun (safe because it's not a widget key).
+        st.session_state["pending_prompt_text"] = ""
 
     if not send_clicked:
         return (None, "auto")
@@ -1410,6 +1422,9 @@ def render_chat_panel_streaming(settings: dict[str, Any], documents: dict[str, l
             "audio_format": result.get("audio_format"),
         }
     )
+
+    if st.session_state.pop("rerun_after_autosend", False):
+        st.rerun()
 
 
 def render_ingestion_tab() -> None:

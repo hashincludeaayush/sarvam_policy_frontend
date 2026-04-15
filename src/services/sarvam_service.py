@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import json
+import mimetypes
 import re
 import tempfile
 import zipfile
@@ -132,7 +133,8 @@ class SarvamService:
             model=DEFAULT_TRANSLATION_MODEL,
         )
         translated_text = response.translated_text
-        detected_language = getattr(response, "source_language_code", None) or input_language_code or "auto"
+        detected_language = getattr(
+            response, "source_language_code", None) or input_language_code or "auto"
         return translated_text, detected_language
 
     def transcribe_audio(
@@ -149,21 +151,39 @@ class SarvamService:
 
         try:
             with temp_path.open("rb") as audio_handle:
-                if translate_to_english:
-                    response = self._get_client().speech_to_text.translate(
-                        file=audio_handle,
-                        model=DEFAULT_STT_MODEL,
-                        mode="translate",
-                    )
-                else:
-                    kwargs: dict[str, Any] = {
-                        "file": audio_handle,
-                        "model": DEFAULT_STT_MODEL,
-                        "mode": "transcribe",
-                    }
-                    if language_code and language_code != "auto":
-                        kwargs["language_code"] = language_code
-                    response = self._get_client().speech_to_text.transcribe(**kwargs)
+                safe_name = Path(filename).name or f"audio{suffix}"
+
+                content_type = mimetypes.guess_type(
+                    safe_name)[0] or "application/octet-stream"
+                if content_type == "audio/vnd.wave":
+                    content_type = "audio/wav"
+                elif content_type in {"audio/x-wav", "audio/wave"}:
+                    content_type = "audio/wav"
+
+                ext = suffix.lower().lstrip(".")
+                codec_map = {
+                    "wav": "wav",
+                    "wave": "wave",
+                    "mp3": "mp3",
+                    "m4a": "x-m4a",
+                    "ogg": "ogg",
+                    "aac": "aac",
+                    "flac": "flac",
+                    "webm": "webm",
+                }
+                input_audio_codec = codec_map.get(ext)
+
+                kwargs: dict[str, Any] = {
+                    "file": (safe_name, audio_handle, content_type),
+                    "model": DEFAULT_STT_MODEL,
+                    "mode": "translate" if translate_to_english else "transcribe",
+                }
+                if input_audio_codec:
+                    kwargs["input_audio_codec"] = input_audio_codec
+                if (not translate_to_english) and language_code and language_code != "auto":
+                    kwargs["language_code"] = language_code
+
+                response = self._get_client().speech_to_text.transcribe(**kwargs)
         finally:
             temp_path.unlink(missing_ok=True)
 
@@ -275,7 +295,8 @@ class SarvamService:
             sentence = sentence.strip()
             if not sentence:
                 continue
-            candidate = f"{current} {sentence}".strip() if current else sentence
+            candidate = f"{current} {sentence}".strip(
+            ) if current else sentence
             if len(candidate) <= max_chars:
                 current = candidate
                 continue
@@ -314,7 +335,8 @@ class SarvamService:
                     output_dir=output_dir,
                     total_pages=total_pages,
                 )
-            text = self._extract_single_document_text(file_path, language_code, output_dir)
+            text = self._extract_single_document_text(
+                file_path, language_code, output_dir)
             return (
                 [
                     {
@@ -326,7 +348,8 @@ class SarvamService:
                 "sarvam-document-intelligence",
             )
 
-        text = self._extract_single_document_text(file_path, language_code, output_dir)
+        text = self._extract_single_document_text(
+            file_path, language_code, output_dir)
         return ([{"text": text, "page_start": None, "page_end": None}], "sarvam-document-intelligence")
 
     def _extract_single_document_text(
@@ -343,7 +366,8 @@ class SarvamService:
         job.start()
         status = job.wait_until_complete()
         if status.job_state not in {"Completed", "PartiallyCompleted"}:
-            raise RuntimeError(f"Document OCR failed with state {status.job_state}")
+            raise RuntimeError(
+                f"Document OCR failed with state {status.job_state}")
 
         output_path = output_dir / f"{file_path.stem}_{job.job_id}.zip"
         job.download_output(str(output_path))
@@ -363,7 +387,8 @@ class SarvamService:
             temp_root = Path(temp_dir)
             for start_page in range(0, total_pages, 10):
                 end_page = min(start_page + 10, total_pages)
-                split_path = temp_root / f"{file_path.stem}_pages_{start_page + 1}_{end_page}.pdf"
+                split_path = temp_root / \
+                    f"{file_path.stem}_pages_{start_page + 1}_{end_page}.pdf"
 
                 writer = PdfWriter()
                 for page_index in range(start_page, end_page):
@@ -371,7 +396,8 @@ class SarvamService:
                 with split_path.open("wb") as handle:
                     writer.write(handle)
 
-                text = self._extract_single_document_text(split_path, language_code, output_dir)
+                text = self._extract_single_document_text(
+                    split_path, language_code, output_dir)
                 segments.append(
                     {
                         "text": text,
@@ -390,7 +416,8 @@ class SarvamService:
                     continue
                 data = archive.read(member).decode("utf-8", errors="ignore")
                 if member.lower().endswith(".html"):
-                    parts.append(BeautifulSoup(data, "html.parser").get_text(separator=" ", strip=True))
+                    parts.append(BeautifulSoup(data, "html.parser").get_text(
+                        separator=" ", strip=True))
                 else:
                     parts.append(data)
         return "\n\n".join(part.strip() for part in parts if part.strip())
