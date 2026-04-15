@@ -8,3 +8,11 @@ requests>=2.32.3
 python-dotenv>=1.0.1
 pypdf>=5.1.0
 beautifulsoup4>=4.12.3
+
+# Streamlit Cloud (Python 3.14+) can resolve a very old OTLP exporter/proto
+# pair that is incompatible with modern protobuf runtimes.
+# Pin to a consistent, modern OpenTelemetry stack.
+opentelemetry-api==1.41.0
+opentelemetry-sdk==1.41.0
+opentelemetry-exporter-otlp-proto-grpc==1.41.0
+opentelemetry-proto==1.41.0

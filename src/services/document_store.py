@@ -1,17 +1,16 @@
 from __future__ import annotations
-from src.services.embedding_service import EmbeddingService
-from src.core.config import AppConfig
-from chromadb.config import Settings as ChromaSettings
-from chromadb.api.client import Client as ChromaClient
-from typing import Any
-from collections import OrderedDict
-import re
 import json
+import re
+from collections import OrderedDict
+from typing import Any
+from chromadb.api.client import Client as ChromaClient
+from chromadb.config import Settings as ChromaSettings
+from src.core.config import AppConfig
+from src.services.embedding_service import EmbeddingService
 
 import os
 
-# See app.py: ensure protobuf uses the pure-Python implementation to avoid
-# crashes when Chroma/OpenTelemetry proto modules meet newer protobuf runtimes.
+# Must be set before importing Chroma/OpenTelemetry.
 os.environ.setdefault("PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION", "python")
 
 

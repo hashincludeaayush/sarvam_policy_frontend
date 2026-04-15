@@ -1,31 +1,28 @@
 from __future__ import annotations
-from src.services.sarvam_service import SarvamService
-from src.services.ingestion_service import IngestionService
-from src.services.document_store import DocumentStore
+import base64
+import hashlib
+import html
+from datetime import datetime
+from pathlib import Path
+import uuid
+from typing import Any, Callable
+import streamlit as st
+import streamlit.components.v1 as components
+from pypdf import PdfReader
+from src.core.config import get_config
 from src.core.constants import (
     DEFAULT_CHAT_MODEL,
     DEFAULT_TTS_SPEAKER,
     LANGUAGES,
     TTS_LANGUAGE_CODES,
 )
-from src.core.config import get_config
-from pypdf import PdfReader
-import streamlit.components.v1 as components
-import streamlit as st
-from typing import Any, Callable
-import uuid
-from pathlib import Path
-from datetime import datetime
-import html
-import hashlib
-import base64
+from src.services.document_store import DocumentStore
+from src.services.ingestion_service import IngestionService
+from src.services.sarvam_service import SarvamService
 
 import os
 
-# Streamlit Cloud currently provisions very new protobuf versions.
-# ChromaDB pulls in older OpenTelemetry proto modules that can crash with:
-# "Descriptors cannot be created directly".
-# For stability, force the pure-Python protobuf implementation.
+# Must be set before importing Chroma/OpenTelemetry.
 os.environ.setdefault("PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION", "python")
 
 
